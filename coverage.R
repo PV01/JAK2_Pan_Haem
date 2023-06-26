@@ -7,6 +7,7 @@ library(tidyverse)
 library(odbc)
 library(Rsamtools)
 library(GenomicRanges)
+library(ggplot2)
 
 
 NGS_coverage<-function(bam_file, chromosome, start, end){
@@ -66,4 +67,47 @@ for (i in 1: length(bam_files)){
               
 }
 
-saveRDS(coverage,"coverage.RDS")
+#saveRDS(coverage,"coverage.RDS")
+
+
+coverage<-readRDS("coverage.RDS")
+
+
+coverage_summary<-coverage %>%
+                          mutate(nuc_count=paste0(nucleotide,":",count)) %>%
+                          group_by(Worksheet, LABNO) %>%
+                          mutate(calls=paste0(nuc_count, collapse="/"),
+                                 Total=sum(count)) %>%
+                          distinct(Worksheet, LABNO, .keep_all = TRUE) %>%
+                          select(LABNO, Worksheet, calls, Total)
+
+mean_depth<-mean(coverage_summary$Total)
+
+ggplot(data=coverage_summary, aes(x="A",y=Total))+
+      geom_boxplot()+
+      geom_jitter(alpha = 0.3, color = "darkblue")
+
+
+m<-mean(coverage_summary$Total)
+s<-sd(coverage_summary$Total)
+
+
+coverage_summary_Z<-coverage_summary %>%
+                       mutate(Z=(Total-m)/s) %>%
+                       filter(Z>-3, Z<3)
+                
+summary(10/coverage_summary_Z$Total*100)
+#Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#0.793    1.319    1.610    2.423    2.288 1000.000 
+hist(10/coverage_summary_Z$Total*1000)
+
+
+
+
+ggplot(data=coverage_summary, aes(x="A",y=(10/Total)*100))+
+  geom_boxplot(outlier.shape = NA)+
+  ylim(0,5)
+
+
+
+
